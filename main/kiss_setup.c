@@ -3718,8 +3718,19 @@ static void cards_cksum_open(void)
 // ---- cards: pick the last word ----
 // 4 x 4 word pages: the 24 word draw fits its 8 candidates on one page, the
 // 12 word draw pages its 128 in 8. Every candidate is a real English BIP39
-// word, untranslated on purpose, exactly as the reveal grid shows them.
+// word, exactly as the reveal grid shows them -- and, like the reveal grid,
+// it carries its Chinese record in the Chinese locale, or an owner keeping
+// the paper in Chinese has no way to find the word to pick. The record needs
+// the room of a fifth of the row, so those pages are 3 x 4.
 #define CARDS_PER_PAGE 16
+#define CARDS_PER_PAGE_ZH 12
+
+static int cards_per_page(void)
+{
+    return wt_zh_record() ? CARDS_PER_PAGE_ZH : CARDS_PER_PAGE;
+}
+
+static int cards_cols(void) { return wt_zh_record() ? 3 : 4; }
 
 static void cards_page_cb(lv_event_t *e)
 {
@@ -3742,16 +3753,18 @@ static void cards_pick_cb(lv_event_t *e)
 
 static void cards_pick_screen(void)
 {
-    const int pages = (s_ncand + CARDS_PER_PAGE - 1) / CARDS_PER_PAGE;
+    const int per = cards_per_page(), cols = cards_cols();
+    const int pages = (s_ncand + per - 1) / per;
     if (s_cpage < 0) s_cpage = 0;
     if (s_cpage >= pages) s_cpage = pages - 1;
 
     mk_screen(tr(STR_W_CARDS_PICK_T), tr(STR_W_CARDS_PICK_S));
 
-    const int first = s_cpage * CARDS_PER_PAGE;
+    const int first = s_cpage * per;
     int on = s_ncand - first;
-    if (on > CARDS_PER_PAGE) on = CARDS_PER_PAGE;
-    const int rows = (on + 3) / 4;
+    if (on > per) on = per;
+    const int rows = (on + cols - 1) / cols;
+    const int pitch_x = SX(704) / cols;     // 176 at four, the width it had
 
     // The grid keeps the chooser frame; the candidates inside it are bare
     // words now, each with the 8px ext click area the word action carries,
@@ -3769,11 +3782,24 @@ static void cards_pick_screen(void)
     lv_obj_t *card = wt_card(s_scr, WT_CHOICE_X, SY(104), WT_CHOICE_W, rows * SY(66) + SY(22));
 #endif
     for (int k = 0; k < on; k++) {
-        lv_obj_t *w = wt_word_action(card, NULL,
+        // The record trails the word, as on the quiz: the English keeps the
+        // left edge it is read from, and the action's label stays child 0.
+        char zc[4] = "";
+        if (wt_zh_record() && kiss_zh_word(s_cand[first + k], zc) != 0)
+            zc[0] = 0;
+        lv_obj_t *w = wt_word_action(card, zc[0] ? zc : NULL,
                                      kiss_lastword_word(s_cand[first + k]),
-                                     true, WT_INK, false, cards_pick_cb,
+                                     !zc[0], WT_INK, false, cards_pick_cb,
                                      (void *)(intptr_t)(first + k));
-        lv_obj_set_pos(w, SX(14) + (k % 4) * SX(176), grid_top + (k / 4) * grid_pitch);
+        if (zc[0]) {
+            lv_obj_t *ml = lv_obj_get_child(w, 1);
+            lv_obj_set_style_text_font(ml, wt_font_zhword(), 0);
+            lv_obj_set_style_text_color(ml, wt_accent(), 0);
+            lv_obj_add_flag(ml, WT_FLAG_ACCENT);
+        }
+        kiss_wipe(zc, sizeof zc);
+        lv_obj_set_pos(w, SX(14) + (k % cols) * pitch_x,
+                       grid_top + (k / cols) * grid_pitch);
     }
 
     // Same action row contract as the reveal pager: CANCEL only on page one,
