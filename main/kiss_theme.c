@@ -411,6 +411,23 @@ const lv_font_t *wt_font_mono23(void) { return &WT_MONO23; }
 const lv_font_t *wt_font_mono28(void) { return &WT_MONO28; }
 const lv_font_t *wt_font_mono34(void) { return &WT_MONO34; }
 
+// The Chinese record's face. Two sizes, not one per rung: it draws a single
+// character beside a word, and 28 is the largest CJK size on every board --
+// the 7in's CJK locales stop at 28 too (wt_font34).
+const lv_font_t *wt_font_zhword(void)
+{
+#if WT_TYPE_NARROW
+    return &font_kiss_zhw18;
+#else
+    return &font_kiss_zhw28;
+#endif
+}
+
+bool wt_zh_record(void)
+{
+    return font_class_for_lang(i18n_get_lang()) == I18N_FC_ZH;
+}
+
 // The Sign hero, and nothing else. Thirteen glyphs, digits and space and full
 // stop, so it cannot represent a letter even if handed one. 28px on the 3.5in,
 // 60 on the 7in (48 x 1.25), from the same glyph list.
@@ -6413,7 +6430,8 @@ void wt_outcome(lv_obj_t *scr, const wt_outcome_t *o)
 
 // ---- shape 3: the grid you read aloud (see kiss_theme.h) ----
 
-void wt_word_grid(lv_obj_t *scr, const char *const *words, int n, int first)
+void wt_word_grid(lv_obj_t *scr, const char *const *words,
+                  const char *const *zh, int n, int first)
 {
     if (n > 12) n = 12;
     const lv_font_t *nf = wt_font_mono18();
@@ -6444,6 +6462,20 @@ void wt_word_grid(lv_obj_t *scr, const char *const *words, int n, int first)
         lv_obj_t *wl = wt_lbl(scr, words[first + k], cx + SX(30) + SX(16), cy,
                               chrome28(words[first + k]), WT_INK);
         lv_obj_set_height(wl, lv_font_get_line_height(wf));
+
+        // The Chinese record, right-aligned in the column so the English word
+        // keeps its place. The longest English word is eight letters and ends
+        // short of it on every board. In the accent, not the ink: the English
+        // is the sentence the seed comes from, this is how it may be written.
+        if (zh && zh[first + k] && zh[first + k][0]) {
+            const lv_font_t *zf = wt_font_zhword();
+            lv_obj_t *zl = wt_lbl(scr, zh[first + k], cx + SX(232) - SX(16) -
+                                  lv_font_get_line_height(zf), cy, zf,
+                                  wt_accent());
+            lv_obj_add_flag(zl, WT_FLAG_ACCENT);
+            lv_obj_set_y(zl, cy + (lv_font_get_line_height(wf) -
+                                   lv_font_get_line_height(zf)) / 2);
+        }
     }
 }
 

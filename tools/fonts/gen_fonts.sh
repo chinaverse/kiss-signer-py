@@ -24,16 +24,19 @@ OUT=../../main
 
 # With no argument every face below is regenerated. `gen_fonts.sh jc1060`
 # writes the 7in board's four faces (jc1060_faces, below) and nothing else, so
-# adding them never rewrites a committed face.
+# adding them never rewrites a committed face. `gen_fonts.sh zhwords` writes
+# the two Chinese wordlist faces (zhword_faces) the same way.
 ONLY="${1:-}"
 case "$ONLY" in
-  ''|jc1060) ;;
-  *) echo "usage: $0 [jc1060]" >&2; exit 2 ;;
+  ''|jc1060|zhwords) ;;
+  *) echo "usage: $0 [jc1060|zhwords]" >&2; exit 2 ;;
 esac
 
 [ -d "$LVF" ] || { echo "LVGL component not fetched (need $LVF)"; exit 1; }
-[ -f "$JP" ] || { echo "Japanese font missing (need tools/fonts/$JP)"; exit 1; }
-[ -f "$MONO" ] || { echo "Ioskeley Mono missing (need tools/fonts/$MONO)"; exit 1; }
+if [ "$ONLY" != zhwords ]; then
+  [ -f "$JP" ] || { echo "Japanese font missing (need tools/fonts/$JP)"; exit 1; }
+  [ -f "$MONO" ] || { echo "Ioskeley Mono missing (need tools/fonts/$MONO)"; exit 1; }
+fi
 [ -d node_modules ] || npm install --no-audit --no-fund
 
 # must match LAT_RANGES in tools/gen_i18n.py (the hang-prevention check)
@@ -113,6 +116,35 @@ jc1060_faces() {
   perl -0pi -e 's/\n+\z/\n/' "$OUT/font_kiss_lat43.c" "$OUT/font_kiss_mono26.c" \
     "$OUT/font_kiss_mono43.c" "$OUT/font_kiss_num60.c"
 }
+
+# The Chinese record of the BIP39 wordlist (main/kiss_zhwords.h): printable
+# ASCII plus exactly the 2048 characters of the Simplified Chinese list, from
+# tools/fonts/glyphs_zhwords.txt (tools/gen_zh_words.py writes it). Source Han
+# Sans SC, the same face the zh UI subsets use, and NO fallback: it is only
+# ever handed a word's character, and a character outside the list drawing a
+# placeholder box is the loud failure wanted there.
+#
+# Its own face rather than more glyphs in glyphs_zh.txt: that set is built at
+# four sizes for every locale's chain, and the wordlist would quadruple it.
+# One size per board instead -- 28 on the 4.3in and the 7in (28 is the largest
+# CJK size on both), 18 on the 3.5in -- and kiss_theme.c's wt_font_zhword()
+# picks it. About 700KB at 28, about 300KB at 18; each image links one.
+zhword_faces() {
+  for SZ in 18 28; do
+    echo "== font_kiss_zhw$SZ"
+    conv --size $SZ --font "$LVF/SourceHanSansSC-Normal.otf" -r 0x20-0x7E \
+      --symbols "$(cat glyphs_zhwords.txt)" \
+      -o "$OUT/font_kiss_zhw$SZ.c"
+  done
+  perl -0pi -e 's/\n+\z/\n/' "$OUT/font_kiss_zhw18.c" "$OUT/font_kiss_zhw28.c"
+}
+
+if [ "$ONLY" = zhwords ]; then
+  zhword_faces
+  ls -la "$OUT/font_kiss_zhw18.c" "$OUT/font_kiss_zhw28.c"
+  echo "zhwords fonts generated"
+  exit 0
+fi
 
 if [ "$ONLY" = jc1060 ]; then
   jc1060_faces
@@ -299,6 +331,9 @@ conv --size 28 --font "$MONO" -r 0x20 -r 0x2E -r 0x30-0x39 -r 0x41-0x46 \
 
 # The 7in board's four faces (jc1060_faces, near the top, says why).
 jc1060_faces
+
+# The Chinese wordlist faces (zhword_faces, near the top).
+zhword_faces
 
 # The 3.5in board's small faces, again, with STRONG autohinting, into
 # main/fonts_ws35/ under the same names. That glass has about 165 pixels to the

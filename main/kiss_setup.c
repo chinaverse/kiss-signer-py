@@ -23,6 +23,7 @@
 #include "kiss_tapent.h"   // source 3: the timing of the user's own taps
 #include "kiss_dice.h"     // alternate path: verifiable off-device dice rolls
 #include "kiss_lastword.h"
+#include "kiss_zhwords.h"   // the Chinese record: pinyin entry, the words beside it
 #include "kiss_rehearse.h" // cards path: the checksum valid last words
 #include "kiss_cards_q.h"  // and whether those words were drawn or chosen
 #include "platform_sd.h"     // the proof needs a card before it can start
@@ -85,6 +86,13 @@ static int s_quiz_asked[QUIZ_ROUNDS];   // positions already asked this pass
 
 static char s_prefix[12];       // restore: letters typed for the current word
 static lv_obj_t *s_word_lbl, *s_sug[3];
+// Pinyin entry (see the restore keypad): the keypad is offering Chinese, which
+// page of matches is up, the chips, and the wordlist index behind each chip.
+#define ZSUG_N 6
+static bool s_py;
+static int s_zpage;
+static lv_obj_t *s_zsug[ZSUG_N], *s_zmore;
+static uint16_t s_zidx[ZSUG_N];
 
 // cards mode (BLIND DRAW): 11 or 23 words drawn blind from the cut up BIP39
 // word list and typed on the restore keyboard, then a last word picked from the
@@ -170,6 +178,9 @@ static void wipe_state(void)
     s_cpage = 0;
     // Same argument: the indices ARE the typed words, in a smaller container.
     memset(s_cidx, 0, sizeof s_cidx);
+    // And the pinyin row's: one of them is the word being typed.
+    memset(s_zidx, 0, sizeof s_zidx);
+    s_zpage = 0;
     s_cq = (kiss_cards_q_t){0};
 }
 
@@ -687,8 +698,20 @@ static void quiz_screen(void)
             } while (d && strcmp(d, s_w[s_quiz_pos]) == 0);
             w = d ? d : "static";
         }
-        lv_obj_t *q = wt_word_action(s_scr, NULL, w, true, WT_INK, false,
-                                     quiz_pick_cb, (void *)(intptr_t)i);
+        // The Chinese record rides as the action's trailing mark, in its own
+        // face: an owner who kept the paper in Chinese answers from it.
+        char zc[4] = "";
+        if (wt_zh_record() && kiss_zh_word(kiss_lastword_index(w), zc) != 0)
+            zc[0] = 0;
+        lv_obj_t *q = wt_word_action(s_scr, zc[0] ? zc : NULL, w, false, WT_INK,
+                                     false, quiz_pick_cb, (void *)(intptr_t)i);
+        if (zc[0]) {
+            lv_obj_t *ml = lv_obj_get_child(q, 1);
+            lv_obj_set_style_text_font(ml, wt_font_zhword(), 0);
+            lv_obj_set_style_text_color(ml, wt_accent(), 0);
+            lv_obj_add_flag(ml, WT_FLAG_ACCENT);
+        }
+        kiss_wipe(zc, sizeof zc);
         lv_obj_set_pos(q, SX(48) + (i % 2) * SX(380), SY(214) + (i / 2) * SY(80));
     }
 
@@ -712,6 +735,25 @@ static void quiz_screen(void)
     // screen, same as the wrong-answer path but reached deliberately.
     wt_arrow_action(s_scr, tr(STR_W_QUIZ_SHOW_AGAIN), true, false, SX(48),
                     WT_ACTION_Y, SX(300), false, words_go_again_cb, NULL);
+}
+
+// ---- the Chinese record (kiss_zhwords.h) ----
+// In the Simplified Chinese locale a recovery word carries its Chinese
+// character beside it, so an owner can keep the paper in either script. The
+// character is drawn and forgotten; s_w only ever holds the English, which is
+// what the seed is made from.
+static lv_obj_t *zh_beside(const char *en, int x, int y, const lv_font_t *line)
+{
+    char zc[4];
+    if (!wt_zh_record() || kiss_zh_word(kiss_lastword_index(en), zc) != 0)
+        return NULL;
+    const lv_font_t *zf = wt_font_zhword();
+    lv_obj_t *l = mk_lbl(zc, x, y + (lv_font_get_line_height(line) -
+                                     lv_font_get_line_height(zf)) / 2,
+                         zf, wt_accent());
+    lv_obj_add_flag(l, WT_FLAG_ACCENT);
+    kiss_wipe(zc, sizeof zc);
+    return l;
 }
 
 // ---- words on screen (the backup moment) ----
@@ -983,12 +1025,16 @@ static void words_screen(void)
 #if KISS_NARROW
         // 68 on a 25 pitch: the scaled 69 on 26 left the paper line under the
         // grid ending 2 px inside the band. Six rows now end at 215.
-        mk_lbl(buf, SX(48) + (k / rows) * SX(352), 68 + (k % rows) * 25,
-               wt_font28(), INK_COL);
+        const int wx = SX(48) + (k / rows) * SX(352);
+        const int wy = 68 + (k % rows) * 25;
 #else
-        mk_lbl(buf, SX(48) + (k / rows) * SX(352), SY(104) + (k % rows) * SY(40),
-               wt_font28(), INK_COL);
+        const int wx = SX(48) + (k / rows) * SX(352);
+        const int wy = SY(104) + (k % rows) * SY(40);
 #endif
+        mk_lbl(buf, wx, wy, wt_font28(), INK_COL);
+        // "24. abstract" is the widest row and ends short of 240 on every
+        // board, so the character sits in a column of its own.
+        zh_beside(s_w[first + k], wx + SX(240), wy, wt_font28());
     }
     // the one rule that matters while they are copying: loud, under the grid,
     // not buried at the end of the subtitle
@@ -2978,25 +3024,131 @@ static void entropy_screen(void)
 // none -- and the rest of the row is a hidden, disabled key: dead glass under
 // c to backspace, where a slipped press does nothing at all.
 #define RESTORE_GAP "gap"
-#define RESTORE_ID_CANCEL 27
-#define RESTORE_ID_GAP    28
+#define RESTORE_ID_GAP    29
 #endif
+// The pinyin key (kiss_zhwords.h). It names the mode it switches TO, the way
+// a phone's globe key does: the Han character types pinyin and offers Chinese
+// characters, ABC goes back to English letters. Both glyphs are in every
+// locale's chain (U+4E2D is in the ja and zh UI subsets, and ko falls through
+// to zh). It sits beside CANCEL and never over backspace: a slip onto it
+// changes what the suggestions offer and keeps every letter typed.
+#define RESTORE_PY_ZH "\xE4\xB8\xAD"   // U+4E2D, "Chinese"
+#define RESTORE_PY_EN "ABC"
+#define RESTORE_ID_CANCEL 27
+#define RESTORE_ID_PY     28
+#define RESTORE_SLOT_CANCEL 30
+#define RESTORE_SLOT_PY     31
 static const char *RESTORE_MAP[] = {
     "q", "w", "e", "r", "t", "y", "u", "i", "o", "p", "\n",
     "a", "s", "d", "f", "g", "h", "j", "k", "l", "\n",
     "z", "x", "c", "v", "b", "n", "m", LV_SYMBOL_BACKSPACE, "\n",
 #if KISS_NARROW
-    "CANCEL", RESTORE_GAP, "",
+    "CANCEL", RESTORE_PY_ZH, RESTORE_GAP, "",
 #else
-    "CANCEL", "",
+    "CANCEL", RESTORE_PY_ZH, "",
 #endif
 };
+
+// ---- pinyin entry: the owner types the reading, picks the character, and
+// the ENGLISH word it stands for is what goes into s_w. Nothing downstream --
+// the checksum, the verify compare, the seed -- ever sees a Chinese byte.
+// The state (s_py, s_zsug, s_zidx) sits with the rest of the entry state at
+// the top of the file, so wipe_state reaches it.
+static void restore_take(const char *w);
+static void restore_refresh(void);
+
+static void zh_pick_cb(lv_event_t *e)
+{
+    int slot = (int)(intptr_t)lv_event_get_user_data(e);
+    if (slot < 0 || slot >= ZSUG_N) return;
+    const char *w = kiss_lastword_word(s_zidx[slot]);
+    if (w) restore_take(w);
+}
+
+static void zh_more_cb(lv_event_t *e)
+{
+    (void)e;
+    s_zpage++;                          // zh_refresh wraps past the last page
+    restore_refresh();
+}
+
+static void zh_refresh(void)
+{
+    const int total = s_prefix[0] ? kiss_zh_suggest(s_prefix, 0, NULL, 0) : 0;
+    const int pages = (total + ZSUG_N - 1) / ZSUG_N;
+    if (s_zpage >= pages) s_zpage = 0;
+    const int n = total ? kiss_zh_suggest(s_prefix, s_zpage * ZSUG_N, s_zidx,
+                                          ZSUG_N)
+                        : 0;
+    for (int i = 0; i < ZSUG_N; i++) {
+        if (!s_zsug[i]) continue;
+        char zc[4];
+        if (i < n && kiss_zh_word(s_zidx[i], zc) == 0) {
+            lv_label_set_text(lv_obj_get_child(s_zsug[i], 0), zc);
+            lv_obj_clear_flag(s_zsug[i], LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_zsug[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    if (s_zmore) {
+        if (pages > 1) lv_obj_clear_flag(s_zmore, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(s_zmore, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+// A key-shaped chip for one character: a bare 28px glyph is a small target,
+// and these are what a thumb accepts a word with.
+static lv_obj_t *zh_chip(const char *txt, const lv_font_t *f, int i,
+                         lv_event_cb_t cb)
+{
+    lv_obj_t *c = wt_word_action(s_scr, NULL, txt, true, wt_accent(), true,
+                                 cb, (void *)(intptr_t)i);
+    lv_obj_set_style_text_font(lv_obj_get_child(c, 0), f, 0);
+    lv_obj_set_size(c, SX(80), KISS_NARROW ? 34 : SY(54));
+    lv_obj_set_style_bg_color(c, KEY_COL, 0);
+    lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(c, SX(8), 0);
+    lv_obj_set_ext_click_area(c, 6);
+    lv_obj_set_pos(c, SX(48) + i * SX(96), KISS_NARROW ? 90 : SY(156));
+    lv_obj_add_flag(c, LV_OBJ_FLAG_HIDDEN);
+    return c;
+}
+
+// The keypad's map and the widths that go with it. Re-run whenever the pinyin
+// key changes its label: set_map is what makes a new label show.
+static void restore_kb_layout(lv_obj_t *kb)
+{
+    RESTORE_MAP[RESTORE_SLOT_CANCEL] = tr(STR_C_CANCEL);
+    RESTORE_MAP[RESTORE_SLOT_PY] = s_py ? RESTORE_PY_EN : RESTORE_PY_ZH;
+    lv_buttonmatrix_set_map(kb, RESTORE_MAP);
+#if KISS_NARROW
+    // CANCEL keeps the left quarter it had; the pinyin key takes the next one,
+    // under c and v, and the dead glass still runs from b to backspace.
+    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_CANCEL, 5);
+    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_PY, 5);
+    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_GAP, 10);
+    lv_buttonmatrix_set_button_ctrl(kb, RESTORE_ID_GAP,
+                                    LV_BUTTONMATRIX_CTRL_HIDDEN |
+                                    LV_BUTTONMATRIX_CTRL_DISABLED);
+#else
+    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_CANCEL, 4);
+    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_PY, 1);
+#endif
+}
 
 static void restore_refresh(void)
 {
     char buf[96];   // ru "слово %d из %d" + typed prefix overflowed 48
     snprintf(buf, sizeof buf, tr(STR_W_WORD_N_FMT), s_nw + 1, entry_target(), s_prefix);
     lv_label_set_text(s_word_lbl, buf);
+    if (s_py) {
+        for (int i = 0; i < 3; i++) lv_obj_add_flag(s_sug[i], LV_OBJ_FLAG_HIDDEN);
+        zh_refresh();
+        return;
+    }
+    for (int i = 0; i < ZSUG_N; i++)
+        if (s_zsug[i]) lv_obj_add_flag(s_zsug[i], LV_OBJ_FLAG_HIDDEN);
+    if (s_zmore) lv_obj_add_flag(s_zmore, LV_OBJ_FLAG_HIDDEN);
     const char *sug[3] = {0};
     int n = s_prefix[0] ? kiss_seed_suggest(s_prefix, sug, 3) : 0;
     for (int i = 0; i < 3; i++) {
@@ -3010,13 +3162,13 @@ static void restore_refresh(void)
     }
 }
 
-static void restore_accept_cb(lv_event_t *e)
+// One word accepted, from either row: always an ENGLISH list word.
+static void restore_take(const char *w)
 {
-    lv_obj_t *act = lv_event_get_current_target(e);
-    const char *w = lv_label_get_text(lv_obj_get_child(act, 0));
     snprintf(s_w[s_nw], sizeof s_w[s_nw], "%s", w);
     s_nw++;
     s_prefix[0] = 0;
+    s_zpage = 0;
     if (s_nw >= entry_target()) {
         if (s_cards) { cards_cksum_open(); return; }   // the picker owns the last word
         if (s_verify) verify_finish();     // check the paper, don't stage a seed
@@ -3024,6 +3176,12 @@ static void restore_accept_cb(lv_event_t *e)
         return;
     }
     restore_refresh();
+}
+
+static void restore_accept_cb(lv_event_t *e)
+{
+    lv_obj_t *act = lv_event_get_current_target(e);
+    restore_take(lv_label_get_text(lv_obj_get_child(act, 0)));
 }
 
 static void restore_kb_cb(lv_event_t *e)
@@ -3045,6 +3203,16 @@ static void restore_kb_cb(lv_event_t *e)
         choose_screen();
         return;
     }
+    if (strcmp(txt, RESTORE_PY_ZH) == 0 || strcmp(txt, RESTORE_PY_EN) == 0) {
+        // The letters stay: pinyin and English are typed on the same keys,
+        // so whatever is in the field is simply looked up the other way.
+        s_py = !s_py;
+        s_zpage = 0;
+        restore_kb_layout(kb);
+        restore_refresh();
+        return;
+    }
+    s_zpage = 0;                        // a new letter is a new set of matches
     size_t pl = strlen(s_prefix);
     if (strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) {
         if (pl) {
@@ -3063,10 +3231,15 @@ static void restore_kb_cb(lv_event_t *e)
             // suggestions reopen on what was typed and it can be corrected or
             // deleted a letter at a time.
             s_nw--;
-            snprintf(s_prefix, sizeof s_prefix, "%s", s_w[s_nw]);
+            // In pinyin the word comes back as its reading, so the same row
+            // of characters reopens with it.
+            if (!s_py || kiss_zh_pinyin_primary(kiss_lastword_index(s_w[s_nw]),
+                                                s_prefix, sizeof s_prefix) != 0)
+                snprintf(s_prefix, sizeof s_prefix, "%s", s_w[s_nw]);
             s_w[s_nw][0] = 0;
         }
-    } else if (strlen(txt) == 1 && pl + 1 < sizeof s_prefix) {
+    } else if (strlen(txt) == 1 && pl + 1 < sizeof s_prefix &&
+               (!s_py || pl + 1 < KISS_ZH_PY_MAX)) {
         s_prefix[pl] = txt[0];
         s_prefix[pl + 1] = 0;
     }
@@ -3077,7 +3250,11 @@ static void restore_screen(void)
 {
     s_nw = 0;
     s_prefix[0] = 0;
-    RESTORE_MAP[30] = tr(STR_C_CANCEL);   // slot 30 = the CANCEL key (localized)
+    // English first in every locale, Chinese included: the keypad opens the
+    // way every walk and every English paper expects, and pinyin is one key
+    // away for the owner whose paper is in Chinese.
+    s_py = false;
+    s_zpage = 0;
     mk_screen(s_cards  ? tr(STR_W_CARDS_T)
             : s_verify ? tr(STR_W_VERIFY_T) : tr(STR_W_RESTORE_T),
               s_verify ? tr(STR_W_VERIFY_S)
@@ -3112,17 +3289,17 @@ static void restore_screen(void)
         lv_obj_set_pos(s_sug[i], SX(48) + i * SX(250), KISS_NARROW ? 90 : SY(156));
         lv_obj_add_flag(s_sug[i], LV_OBJ_FLAG_HIDDEN);
     }
+    // The pinyin row: six characters and a page key, on the same line the
+    // English suggestions use. Only one row is ever visible.
+    for (int i = 0; i < ZSUG_N; i++)
+        s_zsug[i] = zh_chip("", wt_font_zhword(), i, zh_pick_cb);
+    s_zmore = zh_chip(LV_SYMBOL_RIGHT, wt_font28(), ZSUG_N, zh_more_cb);
 
     lv_obj_t *kb = lv_buttonmatrix_create(s_scr);
-    lv_buttonmatrix_set_map(kb, RESTORE_MAP);
+    restore_kb_layout(kb);
 #if KISS_NARROW
     // 128 to the glass's bottom edge, with 2 px of pad and 5 px gaps: rows of
     // 43 px from 35, and 43 px keys across the top row from 42.
-    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_CANCEL, 5);
-    lv_buttonmatrix_set_button_width(kb, RESTORE_ID_GAP, 15);
-    lv_buttonmatrix_set_button_ctrl(kb, RESTORE_ID_GAP,
-                                    LV_BUTTONMATRIX_CTRL_HIDDEN |
-                                    LV_BUTTONMATRIX_CTRL_DISABLED);
     lv_obj_set_size(kb, SCREEN_W, SCREEN_H - 128);
     lv_obj_set_pos(kb, 0, 128);
     lv_obj_set_style_bg_color(kb, BG_COL, 0);

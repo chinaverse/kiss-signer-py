@@ -61,6 +61,15 @@ jobs:
           python3 tools/gen_i18n.py
           git diff --exit-code -- main/i18n_keys.h main/i18n_tables.c 'tools/fonts/glyphs_*.txt'
 
+      # The Chinese record of the BIP39 list (main/kiss_zhwords.h). Pinned:
+      # a newer pypinyin may know another reading, and the table must only
+      # change when someone regenerates it on purpose.
+      - name: the Chinese wordlist record matches its generator
+        if: always()
+        run: |
+          python3 -m pip install --quiet pypinyin==0.55.0
+          python3 tools/gen_zh_words.py --check
+
       - name: no new unreferenced i18n keys
         if: always()
         run: python3 tools/check_i18n_orphans.py

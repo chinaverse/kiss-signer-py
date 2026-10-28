@@ -26,7 +26,7 @@ clang $KISS_BOARD_CFLAGS ${KISS_WERROR:+-Werror} -O1 -Wall -Wextra -Wno-unused-p
   -Icomponents/cUR/src \
   "$WALLY/upstream/src/amalgamation/combined.c" \
   components/cUR/src/*.c components/cUR/src/types/*.c components/cUR/src/sha256/sha256.c \
-  main/kiss_crypto.c main/kiss_psbt.c main/kiss_seed.c main/kiss_cards_q.c \
+  main/kiss_crypto.c main/kiss_psbt.c main/kiss_seed.c main/kiss_cards_q.c main/kiss_lastword.c main/kiss_zhwords.c main/kiss_zhwords_tab.c \
   main/qr_transport.c \
   main/kiss_sp.c \
   main/kiss_usage.c main/kiss_payee.c main/kiss_backup.c main/kiss_duress.c main/kiss_seed_sd.c main/platform_sd.c \

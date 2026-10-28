@@ -112,6 +112,13 @@ const lv_font_t *wt_font_mono23(void);
 const lv_font_t *wt_font_mono28(void);
 const lv_font_t *wt_font_mono34(void);
 const lv_font_t *wt_font_num48(void);   // the Sign hero, digits only
+// The Chinese BIP39 record (kiss_zhwords.h): ASCII and the 2048 wordlist
+// characters, nothing else and no fallback. For a label holding a recovery
+// word's Chinese character -- never a translated string.
+const lv_font_t *wt_font_zhword(void);
+// Whether recovery words carry their Chinese record on screen: the Simplified
+// Chinese locale. The seed is the English sentence either way.
+bool wt_zh_record(void);
 // Largest body font that fits `txt` into w x max_h, measured for the ACTIVE
 // locale's font. Explainers should read at arm's length (and on a 3.5" port),
 // so short copy gets the big font; a long translation degrades to the small one
@@ -1585,7 +1592,13 @@ void wt_outcome(lv_obj_t *scr, const wt_outcome_t *o);
 //
 // The words come as pointers because every caller already has them split;
 // they are drawn and forgotten, never copied into the kit.
-void wt_word_grid(lv_obj_t *scr, const char *const *words, int n, int first);
+//
+// `zh`, when not NULL, is each word's Chinese record (kiss_zhwords.h), indexed
+// like `words`; it is drawn in wt_font_zhword() at the right of the column.
+// The caller decides whether to pass it (wt_zh_record) and does the lookup, so
+// the kit never links a wordlist.
+void wt_word_grid(lv_obj_t *scr, const char *const *words,
+                  const char *const *zh, int n, int first);
 
 // The sheet dots, in the trail line at x=524 -- the band under a word grid
 // is saying something more important. Current sheet in the accent.

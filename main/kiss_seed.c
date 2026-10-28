@@ -9,6 +9,7 @@
 #include "kiss_backup.h"   // the paper check dies with the wallet it was about
 #include "kiss_duress.h"   // and so does the stroke that opened it
 #include "kiss_cards_q.h" // the blind draw's judge, reused on imports
+#include "kiss_zhwords.h" // a sealed Chinese sentence, read as its English
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -1582,8 +1583,23 @@ int kiss_seed_from_plaintext(const char *data, size_t len, char *out, size_t out
         size_t n = (size_t)(e - b);
         if (n == 0 || n + 1 > out_len)
             goto fail;
-        memcpy(out, b, n);
-        out[n] = 0;
+        if (kiss_zh_looks_chinese(b, n)) {
+            // A Chinese sentence is a record of the English one, never a seed
+            // of its own (kiss_zhwords.h): translate it, and from here on it
+            // is exactly the English sentence it stands for.
+            char zh[WSEED_MAX_MNEMONIC];
+            if (n + 1 > sizeof zh)
+                goto fail;
+            memcpy(zh, b, n);
+            zh[n] = 0;
+            int rc = kiss_zh_to_english(zh, out, out_len);
+            wally_bzero(zh, sizeof zh);
+            if (rc != 0)
+                goto fail;
+        } else {
+            memcpy(out, b, n);
+            out[n] = 0;
+        }
         if (kiss_seed_validate(out) != 0)
             goto fail;
     }

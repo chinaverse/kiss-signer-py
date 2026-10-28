@@ -40,3 +40,10 @@ LV_FONT_DECLARE(font_kiss_ko14);
 LV_FONT_DECLARE(font_kiss_ko28);
 LV_FONT_DECLARE(font_kiss_zh14);
 LV_FONT_DECLARE(font_kiss_zh28);
+// The Chinese BIP39 record (kiss_zhwords.h): ASCII plus exactly the 2048
+// characters of the Simplified Chinese wordlist, Source Han Sans SC, no
+// fallback. One size per board, picked by wt_font_zhword(); the UI subsets
+// above carry a few hundred of these characters and must not be asked for
+// the rest. tools/fonts/gen_fonts.sh zhwords writes both.
+LV_FONT_DECLARE(font_kiss_zhw18);
+LV_FONT_DECLARE(font_kiss_zhw28);

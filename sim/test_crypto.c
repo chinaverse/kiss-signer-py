@@ -57,6 +57,8 @@ int test_rngq(void);
 
 // sim/test_lastword.c — the checksum valid last word enumeration (cards mode)
 int test_lastword(void);
+// sim/test_zhwords.c — the Chinese record of the wordlist, and pinyin search
+int test_zhwords(void);
 // sim/test_cards_q.c — whether the owner's own words are worth a seed
 int test_cards_q(void);
 // sim/test_usage.c — the coordinator's address usage payload
@@ -940,6 +942,7 @@ int main(int argc, char **argv) {
     fails += test_dice();
     fails += test_rngq();
     fails += test_lastword();
+    fails += test_zhwords();
     fails += test_cards_q();
     fails += test_fw();
     fails += test_pq();

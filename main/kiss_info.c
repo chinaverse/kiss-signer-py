@@ -19,7 +19,9 @@
 #include "kiss_backup.h"  // kiss_backup_mark: the paper check, made durable
 #include "kiss_crypto.h"
 #include "kiss_kef.h"     // the encrypted backup envelope
+#include "kiss_lastword.h" // BACKUP WORDS: English word -> wordlist index
 #include "kiss_seed.h"
+#include "kiss_zhwords.h" // ...-> its Chinese record
 #include "kiss_setup.h"   // kiss_setup_open_verify: check the paper backup
 #include "kiss_terms.h"   // the ten cards, and this page's two of them
 #include "kiss_theme.h"
@@ -1539,9 +1541,22 @@ static void words_render_page(int page)
                    SY(70) + (SY(30) - lv_obj_get_height(okc)) / 2);
 #endif
 
-    wt_word_grid(s_scr, wp, on, first);
+    // The Chinese record beside each word, in the Simplified Chinese locale.
+    // Looked up here, not in the kit, and wiped with the English it came from:
+    // it is the same secret written another way.
+    char zbuf[WSEED_MAX_WORDS][4];
+    const char *zp[WSEED_MAX_WORDS];
+    const bool zh = wt_zh_record();
+    for (int i = 0; zh && i < n; i++) {
+        if (kiss_zh_word(kiss_lastword_index(wbuf[i]), zbuf[i]) != 0)
+            zbuf[i][0] = 0;
+        zp[i] = zbuf[i];
+    }
+
+    wt_word_grid(s_scr, wp, zh ? zp : NULL, on, first);
     kiss_wipe(words, sizeof words);
     kiss_wipe(wbuf, sizeof wbuf);
+    kiss_wipe(zbuf, sizeof zbuf);
 
     // The band says the one thing that outranks navigation on this screen,
     // and the pulsing amber dot is what earns the interruption.
