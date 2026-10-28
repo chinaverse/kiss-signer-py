@@ -6464,13 +6464,18 @@ void wt_word_grid(lv_obj_t *scr, const char *const *words,
         lv_obj_set_height(wl, lv_font_get_line_height(wf));
 
         // The Chinese record, right-aligned in the column so the English word
-        // keeps its place. The longest English word is eight letters and ends
-        // short of it on every board. In the accent, not the ink: the English
-        // is the sentence the seed comes from, this is how it may be written.
+        // keeps its place. An eight letter word reaches it on the 3.5in
+        // ("attitude" by 6 px), so a word that long pushes the character
+        // right of where it ends, into the column's own gutter. In the
+        // accent, not the ink: the English is the sentence the seed comes
+        // from, this is how it may be written.
         if (zh && zh[first + k] && zh[first + k][0]) {
             const lv_font_t *zf = wt_font_zhword();
-            lv_obj_t *zl = wt_lbl(scr, zh[first + k], cx + SX(232) - SX(16) -
-                                  lv_font_get_line_height(zf), cy, zf,
+            int zx = cx + SX(232) - SX(16) - lv_font_get_line_height(zf);
+            lv_obj_update_layout(wl);
+            const int wend = lv_obj_get_x(wl) + lv_obj_get_width(wl) + SX(8);
+            if (wend > zx) zx = wend;
+            lv_obj_t *zl = wt_lbl(scr, zh[first + k], zx, cy, zf,
                                   wt_accent());
             lv_obj_add_flag(zl, WT_FLAG_ACCENT);
             lv_obj_set_y(zl, cy + (lv_font_get_line_height(wf) -
