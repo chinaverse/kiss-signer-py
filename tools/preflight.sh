@@ -200,6 +200,16 @@ run "a measurement before its layout" \
     "python3 tools/check_layout_reads.py --selftest && python3 tools/check_layout_reads.py"
 run "the sim's LVGL config vs the device's" "LVCONF_SELFTEST=1 python3 tools/check_lv_conf.py"
 run "the decisions index vs the comments" "python3 tools/gen_decisions.py --check"
+# The Chinese record of the wordlist and the glyph list its font is cut from.
+# The generator reads pypinyin, which CI installs pinned and a working tree may
+# not have; without it this says so and passes, rather than failing everyone
+# who never touches the table.
+run "the Chinese wordlist record vs its generator" '
+    if ! python3 -c "import pypinyin" 2>/dev/null; then
+        echo "pypinyin is not installed (pip install pypinyin==0.55.0). Skipped rather than answered wrong."
+        exit 0
+    fi
+    python3 tools/gen_zh_words.py --check'
 run "the published wasm vs the tree" \
     "python3 tools/check_sim_fresh.py --selftest && python3 tools/check_sim_fresh.py"
 run "installer artifacts vs VERSION" \
