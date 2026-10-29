@@ -106,25 +106,25 @@ It travelled with the theme and the theme has since gone up to the chrome column
 
 This read s_verify_full alone, which is only true when the passphrase leg actually RAN -- and that leg is skipped outright when there is no passphrase to check. So a device that has never had one showed "SEED WORDS VERIFIED" under a subtitle reading "the passphrase is not part of this check", disclaiming something the owner does not have and cannot add to the check. kiss_rehearse_after_words is the seam that already knows: VERIFIED means the words alone ARE the whole backup. When they are, and they matched, the backup is fully verified and there is nothing to disclaim. The subtitle survives for the case it was written for -- a passphrase in use whose leg was cancelled or not offered.
 
-[`main/kiss_setup.c:473`](../main/kiss_setup.c#L473)
+[`main/kiss_setup.c:484`](../main/kiss_setup.c#L484)
 
 ### the dice keys are drawn in wt_accent() over WT_DIV troughs, not in a hardcoded blue
 
 They read stronger than the rest of the device only because six large fills carry the same accent that is hairlines everywhere else -- area against stroke, not a palette break. There is no hardcoded colour in this file outside one dim amber. The keys, each directly over the column it feeds: six for a die, two for a coin. A die's key is the FACE, because that is what is printed on the thing in the owner's hand and it is also the character recorded. A coin has no digits on it, and the keys used to say 0 and 1 -- which made the first act of the flow an invented convention the owner had to hold in their head for 128 taps, before they had done anything. They say HEADS and TAILS now: nothing to decide, nothing to remember, and the words on the keys are the words on the coin. The recorded character is still 0 and 1, so the preimage is still the bit string. The mapping that makes it checkable does not live in anyone's head either -- W_COIN_VERIFY_NOTE prints it directly above the hash, on the one line written for the reader who is going to recompute it.
 
-[`main/kiss_setup.c:2652`](../main/kiss_setup.c#L2652)
+[`main/kiss_setup.c:2698`](../main/kiss_setup.c#L2698)
 
 ### the first boot storage chooser matches the Settings one row for row on purpose, so neither may be reordered alone
 
 Geometry and OBJECT from WT_CHOICE_* and wt_row_x, matching storage_chooser_screen() in kiss_settings.c row for row. The two screens present the identical choice and must not drift apart again, which is why the numbers live in kiss_theme.h and not in either file -- and now the shape does too, which is the drift that actually happened last time. Nothing is selected here. In Settings one of the three IS the current mode and wears the tick; this is first boot, there is no current mode yet, and a tick on FLASH would be the device answering its own question.
 
-[`main/kiss_setup.c:3756`](../main/kiss_setup.c#L3756)
+[`main/kiss_setup.c:3959`](../main/kiss_setup.c#L3959)
 
 ### the FIRST screen of setup has no CANCEL on a signer with no keys, because there is nothing to cancel to
 
 This is the one place the "no screen without an exit" rule is deliberately not applied, and the rule's own case says why: it was written for the WORDS screen, where an owner mid flow could only go forward or pull the power. Here the two choices ARE the way on, and the language picker is in the corner. What CANCEL did instead was strand people. It closed the wizard onto the fruit game, and the only route back into a keyless signer is the KISS draw -- printed on a card in the packaging and nowhere on the glass. So an owner who backed out of setup, or drew the gesture before knowing what it opened, was holding a signing device that had become a game. The obvious fix is the one that must NOT be built: a way in on the cover itself. kiss_seed_exists() is false on an AMNESIC signer with no session loaded and on an SD signer with its card out, so a cover that offers setup whenever there are no keys wears a signer's name permanently on the two modes that need the cover most. That is the decoy, gone. With keys, CANCEL stays exactly as it was: the wizard is reached from Settings then, there is a device behind it, and going back is correct.
 
-[`main/kiss_setup.c:3973`](../main/kiss_setup.c#L3973)
+[`main/kiss_setup.c:4176`](../main/kiss_setup.c#L4176)
 
 ## `main/kiss_sign.c`
 
@@ -194,49 +194,49 @@ NO FILENAME HERE, and no "camera" either. Both were cut rather than fixed. The r
 
 The rule wt_ink_for serves says it in its own words -- the caution GLYPH and the breathing dot keep the amber, and anything READ takes the accent -- but the function was only ever handed a colour, so it lifted both. A row whose VALUE is LV_SYMBOL_WARNING had its caution sign painted the theme's colour: SEED WORDS reported the paper unchecked in green on the green theme, which is the one row on the page where amber is the whole message. A caution's WORDS still take the accent. Only the mark keeps the amber.
 
-[`main/kiss_theme.c:777`](../main/kiss_theme.c#L777)
+[`main/kiss_theme.c:794`](../main/kiss_theme.c#L794)
 
 ### the mark is font23, not the font14 every other mark on this device wears
 
 It shipped at 14 and came off the bench as too small to see and too small to aim at -- the same report the content tab LABELS got when they were 18, and this tab sits in the same 30px strip beside them. So the mark takes the tab rung, chrome23, and the brackets stay mono18 punctuation a rung below it exactly as they do on a content tab. Measured: the glyph goes 11x17 -> 17x25 in a strip 30 tall.
 
-[`main/kiss_theme.c:4804`](../main/kiss_theme.c#L4804)
+[`main/kiss_theme.c:4821`](../main/kiss_theme.c#L4821)
 
 ### the tab breathes whenever it has something UNREAD, not only until the first open ever
 
 It pulsed once, on the first [ ? ] an owner ever met, and was still forever after -- so [ ? 3 ] drew the count and then sat there, which is a badge you have to be looking at to notice. The attention dot on a content tab has answered the same question since it was filed from the bench as "not pulsing", and it answers a GLANCE. This is the same statement, so it is the same motion: 100..255 over 1200ms ease in out, the values wt_dot_breathe uses, rather than the 71..230 this one had of its own. The size and translate halves of a dot's breathe do not come with it -- growing a tab in a 30px strip moves the brackets, and the pixels are spent. It stops on its own. The count comes from kiss_terms_unread at build, the explainer swaps the screen, and coming back rebuilds the tab with whatever is left; at zero there is no animation to delete.
 
-[`main/kiss_theme.c:4883`](../main/kiss_theme.c#L4883)
+[`main/kiss_theme.c:4900`](../main/kiss_theme.c#L4900)
 
 ### a caution value is lifted into the accent only where the row has a LAMP to carry the amber
 
 The lift was unconditional, on the argument written here for its whole life -- "its lamp is the amber, and the lamp is what the eye lands on first anyway". That argument is the lamp's, not the value's, so a row with no lamp was borrowing a reason it did not have: SETTINGS > SIGNER lost its pulsing dot (a pulse means a tab needs attention, and being on signet does not), and the word SIGNET went on reading in the theme's own colour with nothing amber left anywhere on the row. Reported from the bench in those terms. So the condition is the lamp. No lamp, no lift, and the caution stays the caution's colour.
 
-[`main/kiss_theme.c:5689`](../main/kiss_theme.c#L5689)
+[`main/kiss_theme.c:5706`](../main/kiss_theme.c#L5706)
 
 ### a lone span is a break opportunity, so when the word before a stop ends near the edge the "
 
 " wraps by ITSELF and the next line opens with a full stop. It looks like a typo in the string and it is not -- SIGN's refusal screen shows it on "information" / ". pair it again". Folding the stop back into the body run fixes it and was rejected: the accent stop is the design, it is what makes a wrapped body scan as sentences rather than as a block, and LVGL gives no way to hold a span to the one before it. The copy moves instead, which is what happened here -- the word at the edge changes and the stop follows it up.
 
-[`main/kiss_theme.c:8140`](../main/kiss_theme.c#L8140)
+[`main/kiss_theme.c:8177`](../main/kiss_theme.c#L8177)
 
 ### the icon grid's ladder floors at 21 and no longer has a font14 rung
 
 THE FLOOR IS 21, NOT 14, which is the same floor wt_body_para has and for the same reason: font14 is for MARKS -- chip labels, unit suffixes, chevrons -- and every string in this grid is a SENTENCE an owner reads before signing. WHY FLAGGED is the case that proves it: five caution rows explaining why a payment was flagged, all of them at the size this device keeps for punctuation. mono21 only where the copy CAN be mono, which is what the body ladder asks too. Where it cannot, the rung stays 23 and the overflow is reported rather than shrunk away -- copy too long for its box is copy to cut, and a silent drop is what hid this for the grid's whole life.
 
-[`main/kiss_theme.c:8560`](../main/kiss_theme.c#L8560)
+[`main/kiss_theme.c:8597`](../main/kiss_theme.c#L8597)
 
 ### an output not on this page draws NO STRAND
 
 It used to draw a dimmed one, on the reasoning that the shape of the transaction should not leave while its detail is read -- and what that produced was a line running to blank glass, because the row it aims at is hidden. There is nothing at the end of it and nothing that says why, so it reads as a destination the screen will not name: the one thing this graph exists to never do. It was reported from the bench as a strand "going to nowhere", twice, once about its colour and once about the strand itself. What is lost is the fan on a paged spend, and the counter on the caption line carries that instead -- 1/2 is on the glass beside WHERE IT GOES, and the read-to-the-end gate holds the slide until every page has been turned, so no signature can happen from one page's worth of strands.
 
-[`main/kiss_theme.c:9661`](../main/kiss_theme.c#L9661)
+[`main/kiss_theme.c:9698`](../main/kiss_theme.c#L9698)
 
 ## `main/kiss_theme.h`
 
 ### the destructive group is a TAB with its own tint and cross-fade, not a row buried on another page
 
-[`main/kiss_theme.h:1007`](../main/kiss_theme.h#L1007)
+[`main/kiss_theme.h:1014`](../main/kiss_theme.h#L1014)
 
 ## `main/main.c`
 
